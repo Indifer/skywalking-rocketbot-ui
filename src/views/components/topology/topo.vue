@@ -19,15 +19,16 @@
   <div class="micro-topo-chart"></div>
 </template>
 <script lang="js">
-import * as d3 from 'd3';
-import d3tip from 'd3-tip';
-/* tslint:disable */
-const diagonal = d3.linkHorizontal()
-  .x(function (d) { return d.x })
-  .y(function (d) { return d.y });
-const diagonalvertical = d3.linkVertical()
-  .x(function (d) { return d.x })
-  .y(function (d) { return d.y });
+  import CssHelper from '@/utils/cssHelper';
+  import * as d3 from 'd3';
+  import d3tip from 'd3-tip';
+ /* tslint:disable */
+  const diagonal = d3.linkHorizontal()
+    .x(function (d) { return d.x })
+    .y(function (d) { return d.y });
+  const diagonalvertical = d3.linkVertical()
+    .x(function (d) { return d.x })
+    .y(function (d) { return d.y });
 
 export default {
   props: {
@@ -44,6 +45,7 @@ export default {
   data() {
     return {
       LOCAL: require('./assets/Local2.png'),
+      ARMERIA: require('./assets/ARMERIA.png'),
       CUBE: require('./assets/cube22.png'),
       CUBEERROR: require('./assets/cube21.png'),
       USER: require('./assets/USER.png'),
@@ -91,6 +93,9 @@ export default {
       CASSANDRA: require('./assets/CASSANDRA.png'),
       LIGHT4J: require('./assets/LIGHT4J.png'),
       PULSAR: require('./assets/PULSAR.png'),
+      SERVICECOMB: require('./assets/SERVICECOMB.png'),
+      SERVICECOMBMESHER: require('./assets/SERVICECOMBMESHER.png'),
+      SERVICECOMBSERVICECENTER: require('./assets/SERVICECOMBSERVICECENTER.png'),
       PLAY: require('./assets/PLAY.png'),
       width: 600,
       height: 600,
@@ -136,7 +141,27 @@ export default {
     'datas.nodes': 'draw',
   },
   methods: {
-    draw() {
+    removeHoneycomb(that) {
+      const appGovernTopoHoneycombFrames = d3.select('#app-govern-topo-honeycomb-frames');
+      appGovernTopoHoneycombFrames.nodes().forEach((node) => {
+      const childrenArray = Array.from(node.children).reverse();
+      _.forEach(childrenArray, (ele, index) => {
+        ele.classList.toggle('reverse');
+        setTimeout(() => {
+        ele.remove();
+        }, 130 * index);
+      });
+      });
+      setTimeout(() => {
+      appGovernTopoHoneycombFrames.remove();
+      }, 780);
+    },
+    draw(value, oldValue) {
+      // Avoid unnecessary repetitive rendering
+      const diffNodes = _.difference(_.sortBy(value, 'id'), _.sortBy(oldValue, 'id'));
+      if(value && value.length > 0 && diffNodes && diffNodes.length <=0) {
+        return;
+      }
       const codeId = this.datas.nodes.map(i => i.id);
       for (let i = 0; i < this.datas.calls.length; i += 1) {
         const element = this.datas.calls[i];
@@ -144,7 +169,7 @@ export default {
           this.datas.calls[i].target = this.datas.calls[i].source;
         }
       }
-      this.svg.select('.graph').remove();
+      this.svg.select(`.graph_${this.datas.type || ''}`).remove();
       this.force = d3
         .forceSimulation(this.datas.nodes)
         .force('collide', d3.forceCollide().radius(() => 65))
@@ -155,7 +180,7 @@ export default {
         .force('center', d3.forceCenter(window.innerWidth / 2 + 100, this.height / 2))
         .on('tick', this.tick)
         .stop();
-      this.graph = this.svg.append('g').attr('class', 'graph');
+      this.graph = this.svg.append('g').attr('class', `graph_${this.datas.type || ''}`);
       this.svg.call(this.getZoomBehavior(this.graph));
       this.graph.call(this.tip);
       this.graph.call(this.tipName);
@@ -201,21 +226,12 @@ export default {
         })
         .on('click', function(d, i) {
           event.stopPropagation();
-          that.tip.hide({}, this);
-          that.node.attr('class', '');
-          d3.select(this).attr('class', 'node-active');
-          const copyD = JSON.parse(JSON.stringify(d));
-          delete copyD.x;
-          delete copyD.y;
-          delete copyD.vx;
-          delete copyD.vy;
-          delete copyD.fx;
-          delete copyD.fy;
-          delete copyD.index;
-          that.$store.commit('rocketTopo/SET_NODE', copyD);
-          that.toggleNode(that.node, d, true);
-          that.toggleLine(that.line, d, true);
-          that.toggleLine(that.lineNode, d, true);
+          // active selected nodes and disable another nodes of non-relations
+          that.clickNodesToUpdate(d, this);
+          if (d.isReal) {
+            // show some entrance icons for service nodes, such as alarm, instance, endpoint
+            that.dashboardEntranceIcons(d, this);
+          }
         });
       this.node
         .append('image')
@@ -257,7 +273,8 @@ export default {
         .attr('text-anchor', 'middle')
         .attr('x', 22)
         .attr('y', 70)
-        .text(d => d.name.length > 12 ? `${d.name.substring(0,12)}...`: d.name)
+        // .text(d => d.name)
+        .text(d => d.name.length > 20 ? `${d.name.substring(0, 20)}...`: d.name)
       this.glink = this.graph.append('g').selectAll('.link');
       this.link = this.glink.data(this.datas.calls).enter();
       this.line = this.link.append('path').attr('class', 'link')
@@ -267,22 +284,13 @@ export default {
         that.tip.hide({}, this);
       }
       this.lineNode = this.link.append('rect').attr('class', 'link-node cp')
-        .attr('width', 6)
-        .attr('height', 6)
+        .attr('width', 10)
+        .attr('height', 10)
         .attr('rx', 3)
         .attr('ry', 3)
         .attr('fill', d => d.cpm ? '#217EF299' : '#6a6d7799')
         .on('click', function(d, i) {
-          that.$store.commit('rocketTopo/SET_MODE', d.detectPoints) 
-          event.stopPropagation();
-          that.tip.hide({}, this);
-          that.tip.show(d, this);
-          that.$store.dispatch(that.$store.state.rocketTopo.mode ? 'rocketTopo/GET_TOPO_SERVICE_INFO' : 'rocketTopo/GET_TOPO_CLIENT_INFO', {id:d.id,duration: that.$store.getters.durationTime});
-          that.$store.commit('rocketTopo/SET_CALLBACK', function() {
-            that.tip.hide({}, this);
-            that.tip.show(d, this);
-            that.$store.dispatch(that.$store.state.rocketTopo.mode ? 'rocketTopo/GET_TOPO_SERVICE_INFO' : 'rocketTopo/GET_TOPO_CLIENT_INFO', {id:d.id,duration: that.$store.getters.durationTime});
-          })
+          that.clickLinkNodes(d, this);
         });
       d3.timeout(() => {
         for (
@@ -298,17 +306,86 @@ export default {
           this.tick();
         }
       });
-    },
-    isLinkNode(currNode, node) {
+  },
+  clickLinkNodes(d, that) {
+    this.$store.commit('rocketTopo/SET_NODE', {});
+    this.$store.dispatch('rocketTopo/CLEAR_TOPO_INFO');
+    this.$store.commit('rocketTopo/SET_MODE', d.detectPoints);
+    event.stopPropagation();
+    this.tip.hide({}, that);
+    this.tip.show(d, that);
+    this.$store.dispatch(this.$store.state.rocketTopo.mode ? 'rocketTopo/GET_TOPO_SERVICE_INFO' : 'rocketTopo/GET_TOPO_CLIENT_INFO', {...d,duration: this.$store.getters.durationTime});
+    this.$store.commit('rocketTopo/SET_CALLBACK', () => {
+      this.tip.hide({}, that);
+      this.tip.show(d, that);
+      this.$store.dispatch(this.$store.state.rocketTopo.mode ? 'rocketTopo/GET_TOPO_SERVICE_INFO' : 'rocketTopo/GET_TOPO_CLIENT_INFO', {...d,duration: this.$store.getters.durationTime});
+    })
+  },
+  clickNodesToUpdate(d, that) {
+    this.tip.hide({}, that);
+    this.node.attr('class', '');
+    d3.select(that).attr('class', 'node-active');
+    const copyD = JSON.parse(JSON.stringify(d));
+    delete copyD.x;
+    delete copyD.y;
+    delete copyD.vx;
+    delete copyD.vy;
+    delete copyD.fx;
+    delete copyD.fy;
+    delete copyD.index;
+    this.$store.dispatch('rocketTopo/CLEAR_TOPO_INFO');
+    this.$store.commit('rocketTopo/SET_NODE', copyD);
+    this.toggleNode(this.node, d, true);
+    this.toggleLine(this.line, d, true);
+    this.toggleLine(this.lineNode, d, true);
+  },
+  dashboardEntranceIcons(d, context) {
+    const that = this;
+    const honeycombFrames = d3.select('#honeycomb-selector_honeycomb-frames');
+    const appGovernTopoHoneycombFrames = this.graph.append('g')
+      .attr('id', 'app-govern-topo-honeycomb-frames')
+      .attr('style', honeycombFrames.attr('style'))
+      .attr('stroke', honeycombFrames.attr('stroke')).html(honeycombFrames.html())
+      .on('mouseleave', function () {
+        that.removeHoneycomb(that);
+      });
+    const nodeTranslate = CssHelper.translateSerialization(context.getAttribute('transform'));
+    const appGovernTopoHoneycombFramesTranslate = CssHelper.matrixSerialization(honeycombFrames.attr('transform'));
+    appGovernTopoHoneycombFramesTranslate.tx = nodeTranslate.x - 83;
+    appGovernTopoHoneycombFramesTranslate.ty = nodeTranslate.y + 72;
+    appGovernTopoHoneycombFrames.attr('transform', CssHelper.matrixDeserialization(appGovernTopoHoneycombFramesTranslate));
+
+    that.$store.commit('rocketTopo/SET_HONEYCOMB_NODE', d);
+
+    d3.selectAll('#honeycomb-selector_honeycomb-group-top-right').on('click', () => {
+      that.$store.commit('rocketTopo/SET_SHOW_ALARM_DIALOG', true);
+      that.removeHoneycomb(that);
+    });
+    d3.selectAll('#honeycomb-selector_honeycomb-group-below-right').on('click', () => {
+      this.$store.commit('rocketTopo/SET_SHOW_TRACE_DIALOG', true);
+      that.removeHoneycomb(that);
+    });
+    d3.selectAll('#honeycomb-selector_honeycomb-group-below-left').on('click', () => {
+      that.$store.commit('SET_CURRENT_SERVICE', { key: d.id, label: d.name });
+      that.$store.commit('rocketTopo/SET_SHOW_INSTANCES_DIALOG', true);
+      that.removeHoneycomb(that);
+    });
+    d3.selectAll('#honeycomb-selector_honeycomb-group-top-left').on('click', () => {
+      that.$store.commit('SET_CURRENT_SERVICE', { key: d.id, label: d.name });
+      that.$store.commit('rocketTopo/SET_SHOW_ENDPOINT_DIALOG', true);
+      that.removeHoneycomb(that);
+    });
+  },
+  isLinkNode(currNode, node) {
     if (currNode.id === node.id) {
         return true;
     }
-    return this.datas.calls.filter(i => 
+    return this.datas.calls.filter(i =>
       (i.source.id === currNode.id || i.target.id === currNode.id) &&
       (i.source.id === node.id || i.target.id === node.id)
     ).length;
   },
-    toggleNode(nodeCircle, currNode, isHover) {
+  toggleNode(nodeCircle, currNode, isHover) {
     if (isHover) {
       nodeCircle.sort((a, b) => a.id === currNode.id ? 1 : -1);
       nodeCircle
@@ -420,11 +497,11 @@ toggleLineText(lineText, currNode, isHover) {
   }
   .link {
     stroke-linecap: round;
-    stroke-width: 1.3px;
+    stroke-width: 1.3px !important;
     fill: none;
-    animation: dash 1s linear infinite;
+    animation: topo-dash 1s linear infinite !important;
   }
-  @keyframes dash {
+  @keyframes topo-dash {
     from {
       stroke-dashoffset: 20;
     }
@@ -453,5 +530,146 @@ toggleLineText(lineText, currNode, isHover) {
     stroke-width: 6px;
     stroke: rgba(255, 255, 255, 0);
   }
+
+ #honeycomb-selector_honeycomb-group-background {
+  opacity: 0.6;
+  animation: honeycombXTopBackground 0.1s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-top {
+  opacity: 1;
+  animation: honeycombXTop 0.2s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-top-right {
+  opacity: 1;
+  animation: honeycombXTop 0.3s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-below-right {
+  opacity: 1;
+  animation: honeycombXTop 0.4s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-below {
+  opacity: 1;
+  animation: honeycombXTop 0.5s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-below-left {
+  opacity: 1;
+  animation: honeycombXTop 0.6s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-top-left {
+  opacity: 1;
+  animation: honeycombXTop 0.7s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-background.reverse {
+  opacity: 0;
+  animation: honeycombXTopBackgroundReverse 0.7s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-top.reverse {
+  opacity: 0;
+  animation: honeycombXTopReverse 0.6s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-top-right.reverse {
+  opacity: 0;
+  animation: honeycombXTopReverse 0.5s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-below-right.reverse {
+  opacity: 0;
+  animation: honeycombXTopReverse 0.4s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-below.reverse {
+  opacity: 0;
+  animation: honeycombXTopReverse 0.3s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-below-left.reverse {
+  opacity: 0;
+  animation: honeycombXTopReverse 0.2s linear;
+ }
+
+ #honeycomb-selector_honeycomb-group-top-left.reverse {
+  opacity: 0;
+  animation: honeycombXTopReverse 0.1s linear;
+ }
+
+ #honeycomb-selector_honeycomb-select-top-left {
+  opacity: 0.1;
+ }
+
+ /*#honeycomb-selector_honeycomb-group-top:hover,*/
+ #honeycomb-selector_honeycomb-group-top-right:hover,
+ /*#honeycomb-selector_honeycomb-group-below:hover,*/
+ #honeycomb-selector_honeycomb-group-below-left:hover,
+ #honeycomb-selector_honeycomb-group-top-left:hover {
+  fill: #0ae;
+ }
+
+ #honeycomb-selector_honeycomb-group-below-right:hover {
+  fill: #24c1ab;
+ }
+
+ @keyframes honeycombXTop {
+  from {
+   opacity: 0;
+  }
+  to {
+   opacity: 1;
+  }
+ }
+
+ @keyframes honeycombXTopBackground {
+  from {
+   opacity: 0;
+  }
+  to {
+   opacity: 0.2;
+  }
+ }
+
+ @keyframes honeycombXTopReverse {
+  from {
+   opacity: 1;
+  }
+  to {
+   opacity: 0;
+  }
+ }
+
+ @keyframes honeycombXTopBackgroundReverse {
+  from {
+   opacity: 1;
+  }
+  to {
+   opacity: 0;
+  }
+ }
+
+ #honeycomb-selector_honeycomb-group-top #honeycomb-selector_honeycomb-text-top,
+ #honeycomb-selector_honeycomb-group-top-right #honeycomb-selector_honeycomb-text-top-right,
+ #honeycomb-selector_honeycomb-group-below-right #honeycomb-selector_honeycomb-text-below-right,
+ #honeycomb-selector_honeycomb-group-below #honeycomb-selector_honeycomb-text-below,
+ #honeycomb-selector_honeycomb-group-below-left #honeycomb-selector_honeycomb-text-below-left,
+ #honeycomb-selector_honeycomb-group-top-left #honeycomb-selector_honeycomb-text-top-left {
+  display: none;
+ }
+
+ #honeycomb-selector_honeycomb-group-top:hover #honeycomb-selector_honeycomb-text-top,
+ #honeycomb-selector_honeycomb-group-top-right:hover #honeycomb-selector_honeycomb-text-top-right,
+ #honeycomb-selector_honeycomb-group-below-right:hover #honeycomb-selector_honeycomb-text-below-right,
+ #honeycomb-selector_honeycomb-group-below:hover #honeycomb-selector_honeycomb-text-below,
+ #honeycomb-selector_honeycomb-group-below-left:hover #honeycomb-selector_honeycomb-text-below-left,
+ #honeycomb-selector_honeycomb-group-top-left:hover #honeycomb-selector_honeycomb-text-top-left {
+  display: block;
+ }
+
 }
 </style>

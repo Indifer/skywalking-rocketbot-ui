@@ -27,6 +27,7 @@ import { Action } from 'vuex-class';
 @Component
 export default class RkEcharts extends Vue {
   @Prop() private option: any;
+  @Prop() private clickEvent: any;
   @Prop({ default: false }) private uncombine!: boolean;
   @Prop({ default: '100%' }) private height!: string;
   @Prop({default: '100%' }) private width!: string;
@@ -38,15 +39,18 @@ export default class RkEcharts extends Vue {
 
   }
   private beforeDestroy(): void {
-    window.removeEventListener('resize', this.myChart.resize);
+   if (this.myChart.dispose) {
+     this.myChart.dispose();
+   }
+   window.removeEventListener('resize', this.myChart.resize);
   }
   @Watch('option', { deep: true })
   private onoptionChanged(newVal: any, oldVal: any): void {
     if (this.myChart) {
       if (newVal) {
-        this.myChart.setOption(newVal);
+        this.myChart.setOption(newVal, true); // clear cache
       } else {
-        this.myChart.setOption(oldVal);
+        this.myChart.setOption(oldVal, true);
       }
     } else {
       this.drawEcharts();
@@ -56,6 +60,9 @@ export default class RkEcharts extends Vue {
     const el: any = this.$el;
     this.myChart = echarts.init(el, '');
     this.myChart.setOption(this.option);
+    this.myChart.on('click', (params: any) => {
+      this.clickEvent(params);
+    });
   }
 }
 </script>

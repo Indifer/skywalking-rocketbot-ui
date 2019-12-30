@@ -97,12 +97,6 @@ const dateFormatTime = (date: Date, step: string): string => {
   return '';
 };
 
-let utc = window.localStorage.getItem('utc');
-if (!utc) {
-  utc = (-(new Date().getTimezoneOffset() / 60)).toString();
-  window.localStorage.setItem('utc', utc);
-}
-
 export interface State {
   durationRow: Duration;
   eventStack: any;
@@ -199,6 +193,10 @@ const mutations: MutationTree<State> = {
 
 // actions
 const actions: ActionTree<State, any> = {
+  SET_UTC(context: { commit: Commit }, data: number): void {
+    context.commit(types.SET_UTC, data);
+    context.commit(types.RUN_EVENTS);
+  },
   SET_DURATION(context: { commit: Commit }, data: Duration): void {
     context.commit(types.SET_DURATION, data);
     context.commit(types.RUN_EVENTS);

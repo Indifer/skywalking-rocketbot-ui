@@ -40,6 +40,7 @@ export interface State {
   globalHeatmap: number[][];
   globalSlow: SlowItem[];
   globalThroughput: SlowItem[];
+  serviceApdexScore: { ApdexScore: number[]; };
   serviceResponseTime: { ResponseTime: number[]; };
   serviceInstanceThroughput: SlowItem[];
   serviceSLA: { SLA: number[]; };
@@ -76,7 +77,7 @@ export interface State {
   instanceClrHeap: { Value: number[] };
   instanceClrCPU: { cpu: number[]; };
   instanceClrGC: { clrGCGen0: number[], clrGCGen1: number[], clrGCGen2: number[]};
-  endpointTopology: { calls: any; nodes: any; };
+  endpointTopology: { calls: any; nodes: any; visualMap: any };
   databaseResponseTime: { ResponseTime: number[]; };
   databaseSLA: { SLA: number[]; };
   databasePercent: {

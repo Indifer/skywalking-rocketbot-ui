@@ -17,12 +17,12 @@
 
 export default [
   {
-    o: 'Global',
-    d: 'globalBrief',
-    c: 'ChartBrief',
-    t: 'Global Brief',
+    o: 'Service',
+    d: 'serviceApdexScore',
+    c: 'ChartNum',
+    t: 'Service Avg ApdexScore',
     w: 3,
-    h: 250,
+    h: 80,
   },
   {
     o: 'Service',
@@ -47,6 +47,14 @@ export default [
     t: 'Service Avg SLA',
     w: 3,
     h: 80,
+  },
+  {
+    o: 'Service',
+    d: 'serviceApdexScore',
+    c: 'ChartLine',
+    t: 'Service ApdexScore',
+    w: 3,
+    h: 170,
   },
   {
     o: 'Service',
@@ -76,7 +84,7 @@ export default [
     o: 'Global',
     d: 'globalPercent',
     c: 'ChartLine',
-    t: 'Global Percent Response',
+    t: 'Global Response Time Percentile',
     w: 3,
     h: 250,
   },
@@ -84,7 +92,7 @@ export default [
     o: 'Service',
     d: 'servicePercent',
     c: 'ChartLine',
-    t: 'Service Percent Response',
+    t: 'Service Response Time Percentile',
     w: 3,
     h: 250,
   },

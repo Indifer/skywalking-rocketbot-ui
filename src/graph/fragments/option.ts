@@ -48,9 +48,18 @@ export const Instances = {
     getServiceInstances(duration: $duration, serviceId: $serviceId) {
       key: id
       label: name
+      language
       attributes {
         name
         value
       }
+    }
+  `};
+
+export const OAPTimeInfo = {
+  query: `
+    getTimeInfo {
+      timezone
+      currentTimestamp
     }
   `};
